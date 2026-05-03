@@ -11,11 +11,12 @@
   \item Number of iterations: \(M = \texttt{num\_iterations}\)
   \item Iteration index: \(i \in \{0,\dots,M-1\}\)
   \item Folding factor in iteration \(i\): \(k_i = \texttt{folding\_factors}[i]\)
+  \item Domain log-shrink factor in iteration \(i\): \(d_i = \texttt{domain\_log\_shrink\_factors}[i]\), with \(d_i \geq 1\). The original WHIR paper takes \(d_i = 1\) (the domain is halved every iteration); allowing \(d_i > 1\) supports protocols (e.g. leanMultisig) that shrink the domain by more than a factor of \(2\) in some iteration.
   \item Folding round index in iteration \(i\): \(s \in \{0,\dots,k_i-1\}\)
   \item Extension field size: \(|\mathbb{F}| = \bfield\)
   \item Constraint degree: \(d = \texttt{constraint\_degree}\)
   \item Log-degree in iteration \(i\): \(m_i = \texttt{log\_degrees}[i]\), and we set $m_{i+1} = m_i - k_i$ (equivalently $m_i = m_0 - \sum_{j<i} k_j$)
-  \item Log-inverted rate in iteration \(i\): \(\mu_i = \texttt{log\_inv\_rates}[i]\), and we set $\mu_{i+1} = \mu_i + (k_i - 1)$ (equivalently $\mu_i = \log_2 \frac{1}{\rho} + \sum_{j<i}(k_j - 1)$)
+  \item Log-inverted rate in iteration \(i\): \(\mu_i = \texttt{log\_inv\_rates}[i]\), and we set $\mu_{i+1} = \mu_i + (k_i - d_i)$ (equivalently $\mu_i = \log_2 \frac{1}{\rho} + \sum_{j<i}(k_j - d_j)$)
   \item Iteration-round-specific RS codes:
   $$
   \CC_{i,s}=(\CC_{i,s}[\rho],\CC_{i,s}[N])_{i,s}=(2^{-\mu_i},2^{m_i-s})

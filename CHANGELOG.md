@@ -2,6 +2,9 @@
 
 toml format changes, newest-first.
 
+### 2026-05-03 — WHIR
+- allow custom shrinking factors in WHIR
+
 ### 2026-05-02 — WHIR
 - allow custom folding factors in WHIR
 

@@ -49,6 +49,7 @@ def load() -> zkVM:
             log_inv_rate=params.log_blowup,
             num_iterations=len(params.whir.rounds),
             folding_factors=[params.whir.k] * len(params.whir.rounds),
+            domain_log_shrink_factors=[1] * len(params.whir.rounds),
             field=field,
             log_degree=params.log_stacked_height(),
             batch_size=params.w_stack,

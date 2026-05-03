@@ -129,6 +129,10 @@ class zkVM:
                 log_inv_rate=section["log_inv_rate"],
                 num_iterations=section["num_iterations"],
                 folding_factors=section["folding_factors"],
+                # Defaults to "halve the domain every iteration" (the WHIR paper).
+                domain_log_shrink_factors=section.get(
+                    "domain_log_shrink_factors", [1] * section["num_iterations"]
+                ),
                 field=field,
                 log_degree=section["log_degree"],
                 batch_size=section["batch_size"],

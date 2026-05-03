@@ -120,6 +120,29 @@ class WHIRConfig:
     # https://github.com/WizardOfMenlo/stir-whir-scripts/blob/main/src/whir.rs#L72
     folding_factors: list[int]
 
+    # The base-2 logarithm of how much the evaluation domain shrinks per iteration.
+    #
+    # In the original WHIR paper the domain is halved every iteration, i.e. $d_i = 1$.
+    # We allow a per-iteration value $d_i \geq 1$.
+    #
+    # At iteration $i$, the evaluation domain shrinks by $2^{d_i}$:
+    # \begin{equation}
+    #    |L_{i+1}| = |L_i| / 2^{d_i}
+    # \end{equation}
+    #
+    # Combined with the degree reduction, the rate evolves as:
+    # \begin{equation}
+    #    \rho_{i+1} = 2^{d_i - k_i} \cdot \rho_i
+    #    \quad\Longleftrightarrow\quad
+    #    \mu_{i+1} = \mu_i + (k_i - d_i)
+    # \end{equation}
+    #
+    # ### Constraints
+    #
+    # - $d_i \geq 1$: the domain must shrink each iteration.
+    # - $d_i \leq k_i$: the domain must shrink less than the folding factor.
+    domain_log_shrink_factors: list[int]
+
     # The field that is used
     field: FieldParams
 
@@ -314,6 +337,7 @@ class WHIR(PCS):
         # Inherit parameters from the given config
         self.hash_size_bits = config.hash_size_bits
         self.folding_factors = config.folding_factors
+        self.domain_log_shrink_factors = config.domain_log_shrink_factors
         self.num_iterations = config.num_iterations
         self.field = config.field
         self.batch_size = config.batch_size
@@ -348,6 +372,16 @@ class WHIR(PCS):
         assert all(k >= 1 for k in self.folding_factors), (
             "Every folding factor must be >= 1 to reduce degree"
         )
+        assert len(self.domain_log_shrink_factors) == self.num_iterations, (
+            f"Expected {self.num_iterations} domain shrink factors, "
+            f"got {len(self.domain_log_shrink_factors)}"
+        )
+        assert all(d >= 1 for d in self.domain_log_shrink_factors), (
+            "Every domain log shrink factor must be >= 1"
+        )
+        assert all(d <= k for d, k in zip(self.domain_log_shrink_factors, self.folding_factors)), (
+            "Every domain log shrink factor must be <= the corresponding folding factor"
+        )
 
         self.log_degree = config.log_degree
 
@@ -363,14 +397,14 @@ class WHIR(PCS):
 
         # Compute the per-iteration log-degree $m_i$ and log-inverse-rate $\mu_i$.
         #
-        # Recurrence (fixed domain shift):
-        #   m_{i+1}     = m_i - k_i           (folding by $2^{k_i}$
-        #   \mu_{i+1}   = \mu_i + (k_i - 1)   (domain halves; degree drops by $2^{k_i}$)
+        # Recurrence (general domain shift):
+        #   m_{i+1}     = m_i - k_i             (folding by $2^{k_i}$)
+        #   \mu_{i+1}   = \mu_i + (k_i - d_i)   (domain shrinks by $2^{d_i}$; degree drops by $2^{k_i}$)
         self.log_degrees = [config.log_degree]
         self.log_inv_rates = [config.log_inv_rate]
-        for k in self.folding_factors:
+        for k, d in zip(self.folding_factors, self.domain_log_shrink_factors):
             self.log_degrees.append(self.log_degrees[-1] - k)
-            self.log_inv_rates.append(self.log_inv_rates[-1] + (k - 1))
+            self.log_inv_rates.append(self.log_inv_rates[-1] + (k - d))
 
         # Domain validity check
 
@@ -893,15 +927,16 @@ class WHIR(PCS):
 
         lines.append("")
         lines.append("  Per-round parameters:")
-        lines.append(f"    folding_factors       : {self.folding_factors}")
-        lines.append(f"    log_degree            : {self.log_degree}")
-        lines.append(f"    log_degrees           : {self.log_degrees}")
-        lines.append(f"    log_inv_rates         : {self.log_inv_rates}")
-        lines.append(f"    num_queries           : {self.num_queries}")
-        lines.append(f"    grinding_bits_queries : {self.grinding_bits_queries}")
-        lines.append(f"    num_ood_samples       : {self.num_ood_samples}")
-        lines.append(f"    grinding_bits_ood     : {self.grinding_bits_ood}")
-        lines.append(f"    grinding_bits_folding : {self.grinding_bits_folding}")
+        lines.append(f"    folding_factors           : {self.folding_factors}")
+        lines.append(f"    domain_log_shrink_factors : {self.domain_log_shrink_factors}")
+        lines.append(f"    log_degree                : {self.log_degree}")
+        lines.append(f"    log_degrees               : {self.log_degrees}")
+        lines.append(f"    log_inv_rates             : {self.log_inv_rates}")
+        lines.append(f"    num_queries               : {self.num_queries}")
+        lines.append(f"    grinding_bits_queries     : {self.grinding_bits_queries}")
+        lines.append(f"    num_ood_samples           : {self.num_ood_samples}")
+        lines.append(f"    grinding_bits_ood         : {self.grinding_bits_ood}")
+        lines.append(f"    grinding_bits_folding     : {self.grinding_bits_folding}")
         lines.append("")
         lines.append(
             f"  Total grinding overhead (sum of 2^grinding_bits) = 2^({self.log_grinding_overhead})"
@@ -917,6 +952,7 @@ class WHIR(PCS):
             f"- Field: {self.field.to_string()}",
             f"- Iterations (M): {self.num_iterations}",
             f"- Folding factors (k_i): {self.folding_factors}",
+            f"- Domain log shrink factors (d_i): {self.domain_log_shrink_factors}",
             f"- Constraint degree: {self.constraint_degree}",
             f"- Batch size: {self.batch_size}",
             f"- Batching: {batching}",
